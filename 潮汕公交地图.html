@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leaflet Map with CartoDB Grayscale & Blank Base Maps</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>#map { height: 100vh; }</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  var map = L.map('map').setView([23.5, 116.5], 10);
+
+  // 彩色 OSM 底图
+  var colorBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  });
+
+  // CartoDB Positron 灰阶底图
+  var grayscaleBase = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  });
+
+  // 空白底图
+  var blankBase = L.tileLayer('', { attribution: '' });
+
+  colorBase.addTo(map);
+
+  var overlayLayers = {};
+
+  const layers = [
+    { name: '潮州市', url: 'https://raw.githubusercontent.com/kkjimmy1011/chaozhou-bus-map/main/chaozhou%20city.geojson', color: 'red' },
+    { name: '汕头市', url: 'https://raw.githubusercontent.com/kkjimmy1011/chaozhou-bus-map/main/shantou%20city.geojson', color: 'blue' },
+    { name: '揭阳市', url: 'https://raw.githubusercontent.com/kkjimmy1011/chaozhou-bus-map/main/jieyang%20city.geojson', color: 'green' },
+  ];
+
+  Promise.all(
+    layers.map(layer =>
+      fetch(layer.url)
+        .then(res => res.json())
+        .then(data => {
+          var geoLayer = L.geoJSON(data, {
+            style: {
+              color: layer.color,
+              weight: 1.5,
+              opacity: 0.8
+            },
+            onEachFeature: function (feature, lyr) {
+              var popupContent = '<b>线路资讯：</b><ul>';
+              for (var key in feature.properties) {
+                popupContent += `<li><b>${key}</b>: ${feature.properties[key]}</li>`;
+              }
+              popupContent += '</ul>';
+              lyr.bindPopup(popupContent);
+            }
+          });
+          overlayLayers[layer.name] = geoLayer;
+          geoLayer.addTo(map);
+        })
+    )
+  ).then(() => {
+    var baseMaps = {
+      "彩色底图": colorBase,
+      "灰阶底图": grayscaleBase,
+      "空白底图": blankBase
+    };
+    L.control.layers(baseMaps, overlayLayers, { collapsed: false }).addTo(map);
+  }).catch(err => console.error('载入图层失败：', err));
+</script>
+
+</body>
+</html>
